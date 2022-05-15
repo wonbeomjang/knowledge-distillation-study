@@ -199,3 +199,5 @@ if __name__ == "__main__":
     wandb.save(os.path.join(wandb.config.run_dir, "best.pth"))
 
     print(f"Best result... Loss: {result['val/loss']}, Acc: {result['val/acc']}")
+    result['test/loss'], result['test/acc'] = result['val/loss'], result['val/acc']
+    wandb.log(result)
