@@ -40,6 +40,7 @@ parser.add_argument("--cpu", nargs='?', default="cuda:0", const="cpu", help="whe
 parser.add_argument("--data_dir", default="dataset", help="data directory")
 parser.add_argument("--num_workers", type=int, default=psutil.cpu_count())
 parser.add_argument("--best", type=int, default=0)
+parser.add_argument("--test", nargs='?', const=True, default=False, help="resume most recent training")
 
 config = parser.parse_args()
 config.device = torch.device(config.cpu)
@@ -127,11 +128,10 @@ def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, l
 
 
 if __name__ == "__main__":
-    net = config.backbone(pretrained=True)
     run_dir = os.path.join(os.getcwd(), config.checkpoint_dir, "run")
     attempt_make_dir(run_dir)
 
-    net = model.LinearEmbedding(net, net.output_size, config.num_classes).to(config.device)
+    net = config.backbone(pretrained=True, num_classes=config.num_classes,).to(config.device)
     optimizer = optim.Adam(net.parameters(), lr=config.learning_rate, weight_decay=1e-5)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=config.lr_decay_epochs,
                                                   gamma=config.lr_decay_gamma)
@@ -189,4 +189,13 @@ if __name__ == "__main__":
     test_loader = DataLoader(dataset_test, batch_size=wandb.config.batch_size, shuffle=False,
                              num_workers=wandb.config.num_workers)
 
-    train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)
+    if not config.test:
+        train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)
+
+    net.load_state_dict(torch.load(os.path.join(wandb.config.run_dir, "last.pth"), map_location=wandb.config.device))
+    result = test(net, test_loader)
+
+    wandb.save(os.path.join(wandb.config.run_dir, "last.pth"))
+    wandb.save(os.path.join(wandb.config.run_dir, "best.pth"))
+
+    print(f"Best result... Loss: {result['val/loss']}, Acc: {result['val/acc']}")
