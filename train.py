@@ -1,3 +1,5 @@
+import os
+
 import psutil
 import argparse
 from typing import Optional
@@ -75,7 +77,7 @@ def test(net: nn.Module, data_loader: DataLoader):
 
 
 def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, lr_scheduler, wandb, run_id,
-          val_loader: Optional[DataLoader]):
+          val_loader: Optional[DataLoader]) -> str:
     acc_meter = AverageMeter()
     loss_meter = AverageMeter()
     device = wandb.config.device
@@ -85,6 +87,7 @@ def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, l
     net = net.train()
 
     best = wandb.config.best
+    res = []
 
     for epoch in range(wandb.config.start_epoch, wandb.config.epoch):
         pbar = tqdm(data_loader, total=len(data_loader))
@@ -111,11 +114,13 @@ def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, l
 
         result = {"train/acc": acc_meter.avg, "train/loss": loss_meter.avg}
         acc = acc_meter.avg
+        res += [f'{result["train/acc"]},{result["train/loss"]}']
         if val_loader:
             with torch.no_grad():
                 val_result = test(net, val_loader)
                 result.update(val_result)
             acc = result["val/acc"]
+            res[-1] = [f'{result["train/acc"]},{result["train/loss"]},{result["val/acc"]},{result["val/loss"]}']
 
         save_info = {"run_id": run_id, "state_dict": net.state_dict(), "optimizer": optimizer.state_dict(),
                      "lr_scheduler": lr_scheduler.state_dict(), "epoch": epoch, "best": best, "net": net}
@@ -125,6 +130,8 @@ def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, l
         torch.save(save_info, os.path.join(wandb.config.run_dir, "last.pth"))
 
         wandb.log(result)
+
+    return res
 
 
 if __name__ == "__main__":
@@ -188,9 +195,9 @@ if __name__ == "__main__":
                               num_workers=wandb.config.num_workers)
     test_loader = DataLoader(dataset_test, batch_size=wandb.config.batch_size, shuffle=False,
                              num_workers=wandb.config.num_workers)
-
+    res = []
     if not config.test:
-        train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)
+        res = train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)
 
     net.load_state_dict(torch.load(os.path.join(wandb.config.run_dir, "last.pth"), map_location=wandb.config.device))
     result = test(net, test_loader)
@@ -201,3 +208,8 @@ if __name__ == "__main__":
     print(f"Best result... Loss: {result['val/loss']}, Acc: {result['val/acc']}")
     result['test/loss'], result['test/acc'] = result['val/loss'], result['val/acc']
     wandb.log(result)
+    with open(os.path.join(wandb.config.run_dir, "result.csv")) as f:
+        f.write("\n".join(res))
+
+    wandb.save(os.path.join(wandb.config.run_dir, "result.csv"), 'a')
+    wandb.finish()
