@@ -208,8 +208,8 @@ if __name__ == "__main__":
     print(f"Best result... Loss: {result['val/loss']}, Acc: {result['val/acc']}")
     result['test/loss'], result['test/acc'] = result['val/loss'], result['val/acc']
     wandb.log(result)
-    with open(os.path.join(wandb.config.run_dir, "result.csv")) as f:
+    with open(os.path.join(wandb.config.run_dir, "result.csv"), 'a') as f:
         f.write("\n".join(res))
 
-    wandb.save(os.path.join(wandb.config.run_dir, "result.csv"), 'a')
+    wandb.save(os.path.join(wandb.config.run_dir, "result.csv"))
     wandb.finish()
