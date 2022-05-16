@@ -199,7 +199,7 @@ if __name__ == "__main__":
     if not config.test:
         res = train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)
 
-    net.load_state_dict(torch.load(os.path.join(wandb.config.run_dir, "last.pth"), map_location=wandb.config.device))
+    net.load_state_dict(torch.load(os.path.join(wandb.config.run_dir, "last.pth"), map_location=wandb.config.device)["state_dict"])
     result = test(net, test_loader)
 
     wandb.save(os.path.join(wandb.config.run_dir, "last.pth"))
