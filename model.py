@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torchvision
 import torch.nn.functional as F
@@ -34,6 +35,9 @@ class ResNet18(nn.Module):
 
         return embedding
 
+    def __str__(self):
+        return "resnet18"
+
 
 class ResNet50(nn.Module):
     output_size = 2048
@@ -65,6 +69,9 @@ class ResNet50(nn.Module):
             return b1, b2, b3, b4, pool, embedding
 
         return embedding
+
+    def __str__(self):
+        return "resnet50"
 
 
 if __name__ == "__main__":
