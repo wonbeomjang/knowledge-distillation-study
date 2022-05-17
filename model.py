@@ -4,6 +4,26 @@ import torchvision
 import torch.nn.functional as F
 
 
+class VGG11(nn.Module):
+    output_size = 512 * 7 * 7
+
+    def __init__(self, pretrained=True, num_classes=100, normalize=True):
+        super(VGG11, self).__init__()
+        pretrained = torchvision.models.vgg11(pretrained=pretrained)
+        self.normalize = normalize
+        self.linear = nn.Linear(self.output_size, num_classes)
+
+        for module_name in ['conv1', 'bn1', 'relu', 'maxpool', 'layer1', 'layer2', 'layer3', 'layer4', 'avgpool']:
+            self.add_module(module_name, getattr(pretrained, module_name))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.features(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.linear(x)
+        return x
+
+
 class ResNet18(nn.Module):
     output_size = 512
 

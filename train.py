@@ -19,7 +19,8 @@ LookupChoices = type('', (argparse.Action, ), dict(__call__=lambda a, p, n, v, o
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--backbone',
-                    choices=dict(resnet18=model.ResNet18,
+                    choices=dict(vgg11=model.VGG11,
+                                 resnet18=model.ResNet18,
                                  resnet50=model.ResNet50),
                     default=model.ResNet18,
                     action=LookupChoices)
