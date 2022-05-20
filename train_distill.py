@@ -17,10 +17,6 @@ import model
 import loss
 from utils import *
 
-url_map = {
-    "resnet18": "",
-    "resnet50": "",
-}
 
 LookupChoices = type('', (argparse.Action, ), dict(__call__=lambda a, p, n, v, o: setattr(n, a.dest, a.choices[v])))
 parser = argparse.ArgumentParser()
@@ -29,7 +25,7 @@ parser.add_argument("--backbone",
                     choices=dict(vgg11=model.VGG11,
                                  resnet18=model.ResNet18,
                                  resnet50=model.ResNet50),
-                    default=model.ResNet18,
+                    default=model.VGG11,
                     action=LookupChoices)
 parser.add_argument("--teacher",
                     choices=dict(vgg11=model.VGG11,
@@ -38,11 +34,12 @@ parser.add_argument("--teacher",
                     default=model.ResNet50,
                     action=LookupChoices)
 parser.add_argument("--loss",
-                    choices=dict(khd=loss.HKD,
+                    choices=dict(cle=loss.CrossEntropyLoss,
+                                 khd=loss.HKD,
                                  attention=loss.AT,
                                  rkd=loss.RKD,
                                  tkd=loss.TKD),
-                    default=model.ResNet50,
+                    default=loss.AT,
                     action=LookupChoices)
 parser.add_argument("--dataset",
                     choices=dict(cifar100=dataset.CIFAR100),
@@ -59,14 +56,14 @@ parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning 
 parser.add_argument("--checkpoint_dir", default="checkpoint", help="check point directory")
 parser.add_argument("--num_classes", type=int, default=100, help="the number of classes")
 parser.add_argument("--resume", nargs='?', const=True, default=False, help="resume most recent training")
-parser.add_argument("--cpu", nargs='?', default="cuda:0", const="cpu", help="whether use gpu or net")
+parser.add_argument("--device", default="cuda:0" if torch.cuda.is_available() else "cpu", help="whether use gpu or net")
 parser.add_argument("--data_dir", default="dataset", help="data directory")
 parser.add_argument("--num_workers", type=int, default=psutil.cpu_count())
 parser.add_argument("--best", type=int, default=0)
 parser.add_argument("--test", nargs='?', const=True, default=False, help="resume most recent training")
 
 config = parser.parse_args()
-config.device = torch.device(config.cpu)
+config.device = torch.device(config.device)
 
 
 def test(student: nn.Module, teacher: nn.Module, criterion: nn.Module, data_loader: DataLoader):
@@ -103,8 +100,7 @@ def train(student: nn.Module, teacher: nn.Module, data_loader: DataLoader, crite
     device = wandb.config.device
     criterion = criterion.to(device)
 
-    student = student.to(device)
-    student = student.train()
+    student = student.to(device).train()
 
     best = wandb.config.best
     res = []
@@ -158,18 +154,20 @@ if __name__ == "__main__":
     run_dir = os.path.join(os.getcwd(), config.checkpoint_dir, "run")
     attempt_make_dir(run_dir)
 
-    teacher: nn.Module = config.teacher(pretrained=True, num_classes=config.num_classes).to(config.device)
-    state_dict = torch.utils.model_zoo.load_url(url_map[f"{config.teacher}"], map_location=config.device)
-    teacher.load_state_dict(state_dict["state_dict"])
+    teacher: nn.Module = config.teacher(pretrained=True, num_classes=config.num_classes, teacher=True).to(config.device)
+    student: nn.Module = config.backbone(pretrained=True, num_classes=config.num_classes).to(config.device)
+
+    print(f"Teacher model is {teacher}")
+    print(f"Student model is {student}")
+
     for param in teacher.parameters():
         param.requires_grad = False
     teacher = teacher.eval()
 
-    student: nn.Module = config.backbone(pretrained=True, num_classes=config.num_classes).to(config.device)
     optimizer = optim.Adam(student.parameters(), lr=config.learning_rate, weight_decay=1e-5)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=config.lr_decay_epochs,
                                                   gamma=config.lr_decay_gamma)
-    criterion = nn.CrossEntropyLoss(config.device).to(config.device)
+    criterion = config.loss().to(config.device)
 
     if not config.resume:
         run_dir = os.path.join(config.checkpoint_dir, "run", "exp" + f"{len(os.listdir(run_dir)) + 1}")
@@ -223,9 +221,14 @@ if __name__ == "__main__":
                               num_workers=wandb.config.num_workers)
     test_loader = DataLoader(dataset_test, batch_size=wandb.config.batch_size, shuffle=False,
                              num_workers=wandb.config.num_workers)
+
+    print("Start test teacher")
+    result = test(teacher, teacher, loss.CrossEntropyLoss().to(wandb.config.device), test_loader)
+    print(f"Teacher matrix: Loss{result['val/loss']}, Accuracy{result['val/acc']}")
+
     res = []
     if not config.test:
-        res = train(student, train_loader, criterion, optimizer, lr_scheduler, wandb, run.id, test_loader)
+        res = train(student, teacher, train_loader, criterion, optimizer, lr_scheduler, wandb, run.id, test_loader)
 
     student.load_state_dict(torch.load(os.path.join(wandb.config.run_dir, "last.pth"), map_location=wandb.config.device)["state_dict"])
     result = test(student, teacher, criterion, test_loader)

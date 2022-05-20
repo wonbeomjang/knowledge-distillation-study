@@ -42,7 +42,7 @@ class HKD(nn.Module):
         with torch.no_grad():
             teacher_pred = teacher(image)
 
-        return self.base_criterion(pred, target) + self.loss_kd(pred, teacher_pred.detach())
+        return self.base_criterion(pred, target) + self.loss_kd(pred, teacher_pred.detach()), pred
 
 
 class AT(nn.Module):
@@ -58,7 +58,7 @@ class AT(nn.Module):
             t_b1, t_b2, t_b3, t_b4, t_pool, t_pred = teacher(image, True)
 
         at_loss = loss_at(b2, t_b2) + loss_at(b3, t_b3) + loss_at(b4, t_b4)
-        return self.base_criterion(s_pred, target) + at_loss * self.lam
+        return self.base_criterion(s_pred, target) + at_loss * self.lam, s_pred
 
 
 def rkd_angle(student, teacher):
@@ -92,6 +92,18 @@ def rkd_distacne(student, teacher):
     return loss
 
 
+class CrossEntropyLoss(nn.Module):
+    def forward(self, image, target, student, teacher):
+        pred = student(image)
+        return F.cross_entropy(pred, target), pred
+
+
+class TKD(nn.Module):
+    def forward(self, image, target, student, teacher):
+        pred = student(image)
+        return F.cross_entropy(pred, target), pred
+
+
 class RKD(nn.Module):
     def __init__(self, base_criterion=F.cross_entropy):
         super(RKD, self).__init__()
@@ -110,4 +122,4 @@ class RKD(nn.Module):
         at_loss = loss_at(b2, t_b2) + loss_at(b3, t_b3) + loss_at(b4, t_b4)
         at_loss *= self.at_ratio
 
-        return self.base_criterion(s_pred, target) + distance_loss + angle_loss + at_loss
+        return self.base_criterion(s_pred, target) + distance_loss + angle_loss + at_loss, s_pred

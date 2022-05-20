@@ -1,3 +1,5 @@
+from typing import Tuple, Any, Union
+
 import torch
 import torch.nn as nn
 import torchvision
@@ -19,19 +21,37 @@ class VGG11(nn.Module):
         backbone = torchvision.models.vgg11(pretrained=pretrained)
         self.normalize = normalize
 
-        for module_name in ['features', 'avgpool']:
-            self.add_module(module_name, getattr(backbone, module_name))
+        self.layer1 = backbone.features[:6]
+        self.layer2 = backbone.features[6:11]
+        self.layer3 = backbone.features[11:15]
+        self.layer4 = backbone.features[15:20]
+        self.avgpool = backbone.avgpool
+
         self.linear = nn.Linear(self.output_size, num_classes)
 
         if pretrained and teacher:
             self.load_state_dict(load_url(model_urls["vgg11"]))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.features(x)
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.linear(x)
-        return x
+    def forward(self, x: torch.Tensor, get_ha=False):
+        b1 = self.layer1(x)
+        b2 = self.layer2(b1)
+        b3 = self.layer3(b2)
+        b4 = self.layer4(b3)
+        pool = self.avgpool(b4)
+
+        pool = torch.flatten(pool, 1)
+        embedding = self.linear(pool)
+
+        if self.normalize:
+            embedding = F.normalize(embedding, p=2, dim=1)
+
+        if get_ha:
+            return b1, b2, b3, b4, pool, embedding
+
+        return embedding
+
+    def __str__(self):
+        return "vgg11"
 
 
 class ResNet18(nn.Module):
@@ -48,7 +68,6 @@ class ResNet18(nn.Module):
 
         if pretrained and teacher:
             self.load_state_dict(load_url(model_urls["resnet18"]))
-
 
     def forward(self, x, get_ha=False):
         x = self.maxpool(self.relu(self.bn1(self.conv1(x))))
@@ -110,3 +129,6 @@ class ResNet50(nn.Module):
     def __str__(self):
         return "resnet50"
 
+
+if __name__ == "__main__":
+    model = VGG11(teacher=True)

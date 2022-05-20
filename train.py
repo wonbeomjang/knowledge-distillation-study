@@ -39,14 +39,14 @@ parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning 
 parser.add_argument("--checkpoint_dir", default="checkpoint", help="check point directory")
 parser.add_argument("--num_classes", type=int, default=100, help="the number of classes")
 parser.add_argument("--resume", nargs='?', const=True, default=False, help="resume most recent training")
-parser.add_argument("--cpu", nargs='?', default="cuda:0", const="cpu", help="whether use gpu or net")
+parser.add_argument("--device", default="cuda:0" if torch.cuda.is_available() else "cpu", help="whether use gpu or net")
 parser.add_argument("--data_dir", default="dataset", help="data directory")
 parser.add_argument("--num_workers", type=int, default=psutil.cpu_count())
 parser.add_argument("--best", type=int, default=0)
 parser.add_argument("--test", nargs='?', const=True, default=False, help="resume most recent training")
 
 config = parser.parse_args()
-config.device = torch.device(config.cpu)
+config.device = torch.device(config.device)
 
 
 def test(net: nn.Module, data_loader: DataLoader):
@@ -78,7 +78,7 @@ def test(net: nn.Module, data_loader: DataLoader):
 
 
 def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, lr_scheduler, wandb, run_id,
-          val_loader: Optional[DataLoader]) -> str:
+          val_loader: Optional[DataLoader]) -> list[str]:
     acc_meter = AverageMeter()
     loss_meter = AverageMeter()
     device = wandb.config.device
