@@ -35,7 +35,7 @@ parser.add_argument("--teacher",
                     action=LookupChoices)
 parser.add_argument("--loss",
                     choices=dict(cle=loss.CrossEntropyLoss,
-                                 khd=loss.HKD,
+                                 hkd=loss.HKD,
                                  attention=loss.AT,
                                  rkd=loss.RKD,
                                  tkd=loss.TKD),
@@ -94,7 +94,7 @@ def test(student: nn.Module, teacher: nn.Module, criterion: nn.Module, data_load
 
 
 def train(student: nn.Module, teacher: nn.Module, data_loader: DataLoader, criterion: nn.Module,
-          optimizer: optim.Optimizer, lr_scheduler, wandb, run_id, val_loader: Optional[DataLoader]) -> list[list[str]]:
+          optimizer: optim.Optimizer, lr_scheduler, wandb, run_id, val_loader: Optional[DataLoader]):
     acc_meter = AverageMeter()
     loss_meter = AverageMeter()
     device = wandb.config.device

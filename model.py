@@ -23,8 +23,8 @@ class VGG11(nn.Module):
 
         self.layer1 = backbone.features[:6]
         self.layer2 = backbone.features[6:11]
-        self.layer3 = backbone.features[11:15]
-        self.layer4 = backbone.features[15:20]
+        self.layer3 = backbone.features[11:16]
+        self.layer4 = backbone.features[16:]
         self.avgpool = backbone.avgpool
 
         self.linear = nn.Linear(self.output_size, num_classes)

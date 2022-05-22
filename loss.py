@@ -21,7 +21,6 @@ def loss_at(student, teacher):
 
     with torch.no_grad():
         t_attention = F.normalize(teacher.pow(2).mean(1).view(teacher.size(0), -1))
-
     return (s_attention - t_attention).pow(2).mean()
 
 
