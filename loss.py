@@ -13,7 +13,7 @@ def pdist(e, squared=False, eps=1e-12):
 
     res = res.clone()
     res[range(len(e)), range(len(e))] = 0
-    return
+    return res
 
 
 def loss_at(student, teacher):
@@ -109,6 +109,7 @@ class RKD(nn.Module):
         self.distance_ratio = 25
         self.angle_ratio = 50
         self.at_ratio = 50
+        self.base_criterion = base_criterion
 
     def forward(self, image, target, student, teacher):
         b1, b2, b3, b4, _, s_pred = student(image, True)
