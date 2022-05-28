@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import model
 from utils import *
-LookupChoices = type('', (argparse.Action, ), dict(__call__=lambda a, p, n, v, o: setattr(n, a.dest, a.choices[v])))
+from data import get_loader
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--backbone',
@@ -88,7 +88,6 @@ def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, l
     net = net.train()
 
     best = wandb.config.best
-    res = []
 
     for epoch in range(wandb.config.start_epoch, wandb.config.epoch):
         pbar = tqdm(data_loader, total=len(data_loader))
@@ -115,24 +114,21 @@ def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, l
 
         result = {"train/acc": acc_meter.avg, "train/loss": loss_meter.avg}
         acc = acc_meter.avg
-        res += [f'{result["train/acc"]},{result["train/loss"]}']
         if val_loader:
             with torch.no_grad():
                 val_result = test(net, val_loader)
                 result.update(val_result)
             acc = result["val/acc"]
-            res[-1] = [f'{result["train/acc"]},{result["train/loss"]},{result["val/acc"]},{result["val/loss"]}']
 
         save_info = {"run_id": run_id, "state_dict": net.state_dict(), "optimizer": optimizer.state_dict(),
                      "lr_scheduler": lr_scheduler.state_dict(), "epoch": epoch, "best": best, "net": net}
         if acc > best:
             best = acc
+            save_info["best"] = best
             torch.save(save_info, os.path.join(wandb.config.run_dir, "best.pth"))
         torch.save(save_info, os.path.join(wandb.config.run_dir, "last.pth"))
 
         wandb.log(result)
-
-    return res
 
 
 if __name__ == "__main__":
@@ -166,39 +162,10 @@ if __name__ == "__main__":
         run = wandb.init(id=save_info["run_id"], project='knowledge_distillation', resume="allow", dir=run_dir,
                          config=vars(config))
 
-    if False and (isinstance(net, model.InceptionV1BN) or isinstance(net, model.GoogleNet)):
-        normalize = transforms.Compose([
-            transforms.Lambda(lambda x: x[[2, 1, 0], ...] * 255.0),
-            transforms.Normalize(mean=[104, 117, 128], std=[1, 1, 1]),
-        ])
-    else:
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    train_loader, test_loader = get_loader(wandb.config)
 
-    train_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.RandomCrop(wandb.config.image_size),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize
-    ])
-
-    test_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.CenterCrop(wandb.config.image_size),
-        transforms.ToTensor(),
-        normalize
-    ])
-
-    dataset_train = config.dataset(wandb.config.data_dir, train=True, transform=train_transform, download=True)
-    dataset_test = config.dataset(wandb.config.data_dir, train=False, transform=test_transform, download=True)
-
-    train_loader = DataLoader(dataset_train, batch_size=wandb.config.batch_size, shuffle=True,
-                              num_workers=wandb.config.num_workers)
-    test_loader = DataLoader(dataset_test, batch_size=wandb.config.batch_size, shuffle=False,
-                             num_workers=wandb.config.num_workers)
-    res = []
     if not config.test:
-        res = train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)
+        train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)
 
     net.load_state_dict(torch.load(os.path.join(wandb.config.run_dir, "last.pth"), map_location=wandb.config.device)["state_dict"])
     result = test(net, test_loader)
@@ -209,8 +176,5 @@ if __name__ == "__main__":
     print(f"Best result... Loss: {result['val/loss']}, Acc: {result['val/acc']}")
     result['test/loss'], result['test/acc'] = result['val/loss'], result['val/acc']
     wandb.log(result)
-    with open(os.path.join(wandb.config.run_dir, "result.csv"), 'a') as f:
-        f.write("\n".join(res))
 
-    wandb.save(os.path.join(wandb.config.run_dir, "result.csv"))
     wandb.finish()

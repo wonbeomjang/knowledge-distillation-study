@@ -1,6 +1,8 @@
 import os
 import math
+import argparse
 
+LookupChoices = type('', (argparse.Action, ), dict(__call__=lambda a, p, n, v, o: setattr(n, a.dest, a.choices[v])))
 
 def attempt_make_dir(dir_name):
     if not os.path.exists(dir_name):
