@@ -36,8 +36,8 @@ parser.add_argument("--dataset",
                     action=LookupChoices)
 parser.add_argument("--num_heads", type=int, default=4, help="number of multi head attention")
 parser.add_argument("--image_size", type=int, default=224, help="size of train image")
-parser.add_argument("--batch_size", type=int, default=1, help="batch size")
-parser.add_argument("--num_classes", type=int, default=100, help="number of classes")
+parser.add_argument("--batch_size", type=int, default=32, help="batch size")
+parser.add_argument("--num_classes", type=int, default=200, help="number of classes")
 parser.add_argument("--epoch", default=100, type=int, help="the number of epoch")
 parser.add_argument('--lr_decay_epochs', type=int, default=[100, 150, 170], nargs='+', help="decay epoch")
 parser.add_argument('--lr_decay_gamma', default=0.5, type=float, help="decay ratio")
@@ -69,6 +69,9 @@ def test(transformer: nn.Module, teacher: nn.Module, student: nn.Module, criteri
             student_features = student(image, True)[:-2]
             teacher_features = teacher(image, True)[:-2]
 
+        teacher_features = [get_attention(x) for x in teacher_features]
+        student_features = [get_attention(x) for x in student_features]
+
         out = transformer(teacher_features, student_features)
         loss = criterion(out, student_features)
 
@@ -81,7 +84,7 @@ def test(transformer: nn.Module, teacher: nn.Module, student: nn.Module, criteri
     return result
 
 
-def train(transformer: model.DistillationTransformer, teacher: nn.Module, student: nn.Module, data_loader: DataLoader,
+def train(transformer: model.Transform, teacher: nn.Module, student: nn.Module, data_loader: DataLoader,
           criterion: nn.Module, optimizer: optim.Optimizer, lr_scheduler, wandb, run_id, val_loader: Optional[DataLoader]):
     loss_meter = AverageMeter()
     device = wandb.config.device
@@ -99,9 +102,11 @@ def train(transformer: model.DistillationTransformer, teacher: nn.Module, studen
                 teacher_features = teacher(image, True)[:-2]
                 student_features = student(image, True)[:-2]
 
+            teacher_features = [get_attention(x) for x in teacher_features]
+            student_features = [get_attention(x).detach() for x in student_features]
+
             out = transformer(src=teacher_features, trg=student_features)
             loss = criterion(out, student_features)
-            print(loss)
 
             optimizer.zero_grad()
             loss.backward()
@@ -136,17 +141,11 @@ if __name__ == "__main__":
 
     train_loader, test_loader = get_loader(config)
 
-    transformer: model.DistillationTransformer = model.DistillationTransformer(config.embedding_size, config.device,
-                                                                               num_heads=config.num_heads).to(config.device)
+    transformer: model.Transform = model.Transform(4, 4, device=config.device).to(config.device)
     teacher: nn.Module = config.teacher(pretrained=True, num_classes=config.num_classes, teacher=True).to(config.device)
     student: nn.Module = config.backbone(pretrained=True, num_classes=config.num_classes, teacher=True).to(config.device)
 
-    for param in teacher.parameters():
-        param.requires_grad = False
     teacher = teacher.eval()
-
-    for param in student.parameters():
-        param.requires_grad = False
     student = student.eval()
 
     optimizer = optim.Adam(transformer.parameters(), lr=config.learning_rate, weight_decay=1e-5)
