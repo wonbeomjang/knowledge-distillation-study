@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from .attention import loss_at
 
 
 def pdist(e, squared=False, eps=1e-12):
@@ -14,50 +15,6 @@ def pdist(e, squared=False, eps=1e-12):
     res = res.clone()
     res[range(len(e)), range(len(e))] = 0
     return res
-
-
-def loss_at(student, teacher):
-    s_attention = F.normalize(student.pow(2).mean(1).view(student.size(0), -1))
-
-    with torch.no_grad():
-        t_attention = F.normalize(teacher.pow(2).mean(1).view(teacher.size(0), -1))
-    return (s_attention - t_attention).pow(2).mean()
-
-
-class HKD(nn.Module):
-    def __init__(self, base_criterion=F.cross_entropy):
-        super(HKD, self).__init__()
-        self.T = 4
-        self.lam = 16
-        self.base_criterion = base_criterion
-
-    def loss_kd(self, preds, teacher_preds):
-        return F.kl_div(F.log_softmax(preds / self.T, dim=1), F.softmax(teacher_preds / self.T, dim=1),
-                        reduction='batchmean') * self.lam
-
-    def forward(self, image, target, student, teacher):
-        pred = student(image)
-
-        with torch.no_grad():
-            teacher_pred = teacher(image)
-
-        return self.base_criterion(pred, target) + self.loss_kd(pred, teacher_pred.detach()), pred
-
-
-class AT(nn.Module):
-    def __init__(self, base_criterion=F.cross_entropy):
-        super(AT, self).__init__()
-        self.base_criterion = base_criterion
-        self.lam = 50
-
-    def forward(self, image, target, student, teacher):
-        b1, b2, b3, b4, _, s_pred = student(image, True)
-
-        with torch.no_grad():
-            t_b1, t_b2, t_b3, t_b4, t_pool, t_pred = teacher(image, True)
-
-        at_loss = loss_at(b2, t_b2) + loss_at(b3, t_b3) + loss_at(b4, t_b4)
-        return self.base_criterion(s_pred, target) + at_loss * self.lam, s_pred
 
 
 def rkd_angle(student, teacher):
@@ -89,18 +46,6 @@ def rkd_distacne(student, teacher):
 
     loss = F.smooth_l1_loss(d, t_d, reduction='elementwise_mean')
     return loss
-
-
-class CrossEntropyLoss(nn.Module):
-    def forward(self, image, target, student, teacher):
-        pred = student(image)
-        return F.cross_entropy(pred, target), pred
-
-
-class TKD(nn.Module):
-    def forward(self, image, target, student, teacher):
-        pred = student(image)
-        return F.cross_entropy(pred, target), pred
 
 
 class RKD(nn.Module):
