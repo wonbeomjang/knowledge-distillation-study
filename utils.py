@@ -2,7 +2,22 @@ import os
 import math
 import argparse
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
 LookupChoices = type('', (argparse.Action, ), dict(__call__=lambda a, p, n, v, o: setattr(n, a.dest, a.choices[v])))
+
+
+def get_sample_features(train_loader: DataLoader, student: nn.Module, device: torch.device) -> list[torch.Tensor]:
+    features = torch.ones([1])
+    for image, target in train_loader:
+        image: torch.Tensor = image.to(device)
+        features = student(image, True)[:-2]
+        break
+
+    return features
+
 
 def attempt_make_dir(dir_name):
     if not os.path.exists(dir_name):

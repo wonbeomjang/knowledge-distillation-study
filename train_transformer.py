@@ -36,7 +36,7 @@ parser.add_argument("--dataset",
                     action=LookupChoices)
 parser.add_argument("--num_heads", type=int, default=4, help="number of multi head attention")
 parser.add_argument("--image_size", type=int, default=224, help="size of train image")
-parser.add_argument("--batch_size", type=int, default=64, help="batch size")
+parser.add_argument("--batch_size", type=int, default=1, help="batch size")
 parser.add_argument("--num_classes", type=int, default=100, help="number of classes")
 parser.add_argument("--epoch", default=100, type=int, help="the number of epoch")
 parser.add_argument('--lr_decay_epochs', type=int, default=[100, 150, 170], nargs='+', help="decay epoch")
@@ -45,7 +45,7 @@ parser.add_argument("--learning_rate", default=1e-3, type=float, help="learning 
 parser.add_argument("--start_epoch", type=int, default=0)
 parser.add_argument("--checkpoint_dir", default="checkpoint", help="check point directory")
 parser.add_argument("--resume", nargs='?', const=True, default=False, help="resume most recent training")
-parser.add_argument("--embedding_size", type=int, default=56 * 56)
+parser.add_argument("--embedding_size", type=int, default=14 * 14)
 parser.add_argument("--device", default="cuda:0" if torch.cuda.is_available() else "cpu", help="whether use gpu or net")
 parser.add_argument("--data_dir", default="dataset", help="data directory")
 parser.add_argument("--num_workers", type=int, default=psutil.cpu_count())
@@ -101,6 +101,7 @@ def train(transformer: model.DistillationTransformer, teacher: nn.Module, studen
 
             out = transformer(src=teacher_features, trg=student_features)
             loss = criterion(out, student_features)
+            print(loss)
 
             optimizer.zero_grad()
             loss.backward()
@@ -136,10 +137,9 @@ if __name__ == "__main__":
     train_loader, test_loader = get_loader(config)
 
     transformer: model.DistillationTransformer = model.DistillationTransformer(config.embedding_size, config.device,
-                                                                               num_heads=config.num_heads)
+                                                                               num_heads=config.num_heads).to(config.device)
     teacher: nn.Module = config.teacher(pretrained=True, num_classes=config.num_classes, teacher=True).to(config.device)
-    student: nn.Module = config.backbone(pretrained=True, num_classes=config.num_classes, teacher=True).to(
-        config.device)
+    student: nn.Module = config.backbone(pretrained=True, num_classes=config.num_classes, teacher=True).to(config.device)
 
     for param in teacher.parameters():
         param.requires_grad = False
@@ -152,7 +152,9 @@ if __name__ == "__main__":
     optimizer = optim.Adam(transformer.parameters(), lr=config.learning_rate, weight_decay=1e-5)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=config.lr_decay_epochs,
                                                   gamma=config.lr_decay_gamma)
-    criterion = loss.TMSE(config.embedding_size, student(next(iter(train_loader))[0], True)[:-2], config.device).to(config.device)
+
+    features = get_sample_features(train_loader, student, config.device)
+    criterion = loss.TMSE().to(config.device)
 
     if not config.resume:
         run_dir = os.path.join(config.checkpoint_dir, "loss", "exp" + f"{len(os.listdir(run_dir)) + 1}")

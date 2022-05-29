@@ -140,6 +140,7 @@ if __name__ == "__main__":
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=config.lr_decay_epochs,
                                                   gamma=config.lr_decay_gamma)
 
+    train_loader, test_loader = get_loader(config)
     if not config.resume:
         run_dir = os.path.join(config.checkpoint_dir, "run", "exp" + f"{len(os.listdir(run_dir)) + 1}")
         attempt_make_dir(run_dir)
@@ -162,7 +163,6 @@ if __name__ == "__main__":
         run = wandb.init(id=save_info["run_id"], project='knowledge_distillation', resume="allow", dir=run_dir,
                          config=vars(config))
 
-    train_loader, test_loader = get_loader(wandb.config)
 
     if not config.test:
         train(net, train_loader, optimizer, lr_scheduler, wandb, run.id, test_loader)

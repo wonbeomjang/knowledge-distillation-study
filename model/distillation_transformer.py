@@ -6,11 +6,27 @@ import torch.nn.functional as F
 from einops import rearrange
 
 
-def make_patch(x: torch.Tensor, embedding_size: int):
-    x = F.normalize(x.pow(2).mean(1).view(x.size(0), -1))
-    assert x.size(1) <= embedding_size
-    x = x.repeat((1, embedding_size // x.size(1)))
+def make_attention(x: torch.Tensor, size=None):
+    x = F.normalize(x.pow(2).mean(1))
+    if size:
+        x = F.adaptive_avg_pool2d(x, size)
     return x
+
+
+def make_patch(x: torch.Tensor, embedding_size: int):
+    x = make_attention(x, int(embedding_size ** (1/2))).view(x.size(0), -1)
+    assert x.size(1) == embedding_size
+    return x
+
+
+class MakePatchBlock(nn.Module):
+    def __init__(self, embedding_size):
+        super(MakePatchBlock, self).__init__()
+        self.embedding_size = embedding_size
+
+    def forward(self, x):
+        attention = torch.stack([make_patch(t, self.embedding_size) for t in x], dim=1)
+        return attention
 
 
 class MultiHeadAttention(nn.Module):
@@ -98,8 +114,7 @@ class AttentionEncoder(nn.Module):
         ])
         self.positional_encoding = get_positional_encoding(self.embedding_size, max_len, device)
 
-    def forward(self, x: list[torch.Tensor]):
-        attention = torch.stack([make_patch(t, self.embedding_size) for t in x], dim=1)
+    def forward(self, attention):
         attention += self.positional_encoding[:attention.size(1), :]
         attention = self.encoders(attention)
 
@@ -152,13 +167,22 @@ class AttentionDecoder(nn.Module):
 
         self.linear = nn.Linear(self.embedding_size, self.embedding_size)
 
-    def forward(self, x: list[torch.Tensor], enc_src: torch.Tensor):
-        attention = torch.stack([make_patch(t, self.embedding_size) for t in x], dim=1)
+    def forward(self, attention, enc_src: torch.Tensor):
         attention += self.positional_encoding[:attention.size(1), :]
         attention, enc_src = self.decoders((attention, enc_src))
         attention = self.linear(attention)
         return attention
-    
+
+
+class ReshapeBlock(nn.Module):
+    def __init__(self, embedding_size):
+        super(ReshapeBlock, self).__init__()
+        self.embedding_size = embedding_size
+
+    def forward(self, x: torch.Tensor):
+        print(x.size())
+        return x.view((x.size(0), int(self.embedding_size ** (1/2)), int(self.embedding_size ** (1/2))))
+
 
 class DistillationTransformer(nn.Module):
     def __init__(self, embedding_size: int, device: torch.device, **kwargs):
@@ -167,26 +191,24 @@ class DistillationTransformer(nn.Module):
         :param device: torch.device to run
         """
         super(DistillationTransformer, self).__init__()
-
+        self.attention_block = MakePatchBlock(embedding_size)
         self.encoder = AttentionEncoder(embedding_size, device, **kwargs)
         self.decoder = AttentionDecoder(embedding_size, device, **kwargs)
+        self.reshape_block = ReshapeBlock(embedding_size)
         self._initialize_weights()
 
     def forward(self, src, trg):
+        src = self.attention_block(src)
         enc_src = self.encoder(src)
-        x = self.decoder(trg, enc_src)
+        x = self.decoder(self.attention_block(trg), enc_src)
+        x = self.reshape_block(x)
 
         return x
 
     def _initialize_weights(self) -> None:
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
+            if isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
+
+
