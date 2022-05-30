@@ -136,7 +136,7 @@ def train(transformer: model.Transform, teacher: nn.Module, student: nn.Module, 
 
 
 if __name__ == "__main__":
-    run_dir = os.path.join(os.getcwd(), config.checkpoint_dir, "run")
+    run_dir = os.path.join(os.getcwd(), config.checkpoint_dir, "loss")
     attempt_make_dir(run_dir)
 
     train_loader, test_loader = get_loader(config)
