@@ -81,7 +81,7 @@ def get_attention(x: torch.Tensor):
     return F.normalize(x.pow(2).mean(1))
 
 
-def get_sample_features(train_loader: DataLoader, student: nn.Module, device: torch.device) -> list[torch.Tensor]:
+def get_sample_features(train_loader: DataLoader, student: nn.Module, device: torch.device):
     features = torch.ones([1])
     for image, target in train_loader:
         image: torch.Tensor = image.to(device)

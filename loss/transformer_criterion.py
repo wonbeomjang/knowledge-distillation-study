@@ -10,7 +10,7 @@ def make_patch(x: torch.Tensor, embedding_size: int, device: torch.device):
 
 
 class TMSE(nn.Module):
-    def forward(self, preds: list[torch.Tensor], trgs: list[torch.Tensor]):
+    def forward(self, preds, trgs):
         loss = 0
 
         for pred, trg in zip(preds, trgs):

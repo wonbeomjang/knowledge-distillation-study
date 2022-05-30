@@ -78,7 +78,7 @@ class InReshapeBlock(nn.Module):
         super(InReshapeBlock, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(size)
     
-    def forward(self, x: list[torch.Tensor]):
+    def forward(self, x):
         feature = [self.avg_pool(t) for t in x]
         feature = torch.stack(feature, 1)
         return feature
@@ -118,7 +118,7 @@ class Transform(nn.Module):
 
         self.out = nn.Conv2d(64, out_channels, 1)
 
-    def forward(self, src: list[torch.Tensor], trg: list[torch.Tensor]):
+    def forward(self, src, trg):
         x = self.in_reshape(src)
 
         x1 = self.adj(x)
