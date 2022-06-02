@@ -39,7 +39,7 @@ parser.add_argument("--image_size", type=int, default=224, help="size of train i
 parser.add_argument("--batch_size", type=int, default=32, help="batch size")
 parser.add_argument("--num_classes", type=int, default=100, help="number of classes")
 parser.add_argument("--epoch", type=int, default=200, help="the number of epoch")
-parser.add_argument('--lr_decay_epochs', type=int, default=[100, 150, 170], nargs='+', help="decay epoch")
+parser.add_argument('--lr_decay_epochs', type=int, default=[60, 100, 120, 160], nargs='+', help="decay epoch")
 parser.add_argument('--lr_decay_gamma', default=0.5, type=float, help="decay ratio")
 parser.add_argument("--learning_rate", default=1e-3, type=float, help="learning rate")
 parser.add_argument("--start_epoch", type=int, default=0)
