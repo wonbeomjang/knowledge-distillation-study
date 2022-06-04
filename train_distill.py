@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
     print("Start test teacher")
     result = test(teacher, teacher, loss.CrossEntropyLoss().to(wandb.config.device), test_loader)
-    print(f"Teacher matrix: Loss{result['val/loss']}, Accuracy{result['val/acc']}")
+    print(f"Teacher matrix: Loss{result['val/loss']:.4f}, Accuracy{result['val/acc']:.4f}")
 
     if not config.test:
         train(student, teacher, train_loader, criterion, optimizer, lr_scheduler, wandb, run.id, test_loader)
