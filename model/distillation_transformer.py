@@ -140,13 +140,3 @@ class Transform(nn.Module):
 
         x = self.out_reshape(x, trg)
         return x
-
-
-if __name__ == "__main__":
-    device = torch.device("cpu")
-    model = Transform(4, 4, device=device)
-    print(os.listdir("./"))
-    model.load_state_dict(torch.load("../transform.pth")["state_dict"])
-
-    torch.save(model.state_dict(), "transfrom.pth")
-
