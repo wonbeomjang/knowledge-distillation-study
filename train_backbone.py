@@ -78,7 +78,7 @@ def test(net: nn.Module, data_loader: DataLoader):
 
 
 def train(net: nn.Module, data_loader: DataLoader, optimizer: optim.Optimizer, lr_scheduler, wandb, run_id,
-          val_loader: Optional[DataLoader]) -> list[str]:
+          val_loader: Optional[DataLoader]):
     acc_meter = AverageMeter()
     loss_meter = AverageMeter()
     device = wandb.config.device

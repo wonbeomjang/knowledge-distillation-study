@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .attention import loss_at
-from model.distillation_transformer import Transform
+from model.distillation_transformer import TransformV2
 from utils import get_attention
 
 
@@ -14,7 +14,7 @@ class TKD(nn.Module):
         self.base_criterion = base_criterion
         self.t_ratio = 50
         self.at_ratio = 50
-        self.transformer = Transform(4, 4, device=device, pretrained=True)
+        self.transformer = TransformV2(4, 4, device=device, pretrained=True)
 
         self.transformer = self.transformer.eval()
         for param in self.transformer.parameters():

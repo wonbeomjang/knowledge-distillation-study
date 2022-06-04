@@ -30,13 +30,18 @@ parser.add_argument("--teacher",
                                  resnet50=model.ResNet50),
                     default=model.ResNet50,
                     action=LookupChoices)
+parser.add_argument("--transformer",
+                    choices=dict(v1=model.Transform,
+                                 v2=model.TransformV2),
+                    default=model.TransformV2,
+                    action=LookupChoices)
 parser.add_argument("--dataset",
                     choices=dict(cifar100=dataset.CIFAR100),
                     default=dataset.CIFAR100,
                     action=LookupChoices)
 parser.add_argument("--num_heads", type=int, default=4, help="number of multi head attention")
 parser.add_argument("--image_size", type=int, default=224, help="size of train image")
-parser.add_argument("--batch_size", type=int, default=32, help="batch size")
+parser.add_argument("--batch_size", type=int, default=16, help="batch size")
 parser.add_argument("--num_classes", type=int, default=100, help="number of classes")
 parser.add_argument("--epoch", type=int, default=200, help="the number of epoch")
 parser.add_argument('--lr_decay_epochs', type=int, default=[60, 100, 120, 160], nargs='+', help="decay epoch")
@@ -84,7 +89,7 @@ def test(transformer: nn.Module, teacher: nn.Module, student: nn.Module, criteri
     return result
 
 
-def train(transformer: model.Transform, teacher: nn.Module, student: nn.Module, data_loader: DataLoader,
+def train(transformer: model.TransformV2, teacher: nn.Module, student: nn.Module, data_loader: DataLoader,
           criterion: nn.Module, optimizer: optim.Optimizer, lr_scheduler, wandb, run_id, val_loader: Optional[DataLoader]):
     loss_meter = AverageMeter()
     device = wandb.config.device
@@ -141,7 +146,7 @@ if __name__ == "__main__":
 
     train_loader, test_loader = get_loader(config)
 
-    transformer: model.Transform = model.Transform(4, 4, device=config.device).to(config.device)
+    transformer: nn.Module = config.transformer(4, 4, device=config.device).to(config.device)
     teacher: nn.Module = config.teacher(pretrained=True, num_classes=config.num_classes, teacher=True).to(config.device)
     student: nn.Module = config.backbone(pretrained=True, num_classes=config.num_classes, teacher=True).to(config.device)
 

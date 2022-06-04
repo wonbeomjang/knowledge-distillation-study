@@ -1,16 +1,16 @@
-import os
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.model_zoo import load_url
 
+from model.distillation_transformer.block import InReshapeBlock, OutReshapeBlock
+
 ckpt_url = "https://github.com/wonbeomjang/parameters/releases/download/parameter/transfrom.pth"
 
 
-class Conv(nn.Module):
+class ConvV1(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, device=torch.device("cpu")):
-        super(Conv, self).__init__()
+        super(ConvV1, self).__init__()
         self.residual = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
             nn.ReLU(),
@@ -23,7 +23,7 @@ class Conv(nn.Module):
         self.value = nn.Linear(out_channels, out_channels)
         self.mask = torch.zeros((out_channels, out_channels), device=device, requires_grad=False)
         for i in range(out_channels):
-            self.mask[i][:i+1] = 1
+            self.mask[i][:i + 1] = 1
 
     def forward(self, x):
         x = self.residual(x)
@@ -54,8 +54,8 @@ class EncoderBlock(nn.Module):
 
         self.block = nn.Sequential(
             nn.MaxPool2d(2, 2),
-            Conv(in_channels, out_channels, 3, 1, 1, device),
-            Conv(out_channels, out_channels, 3, 1, 1, device)
+            ConvV1(in_channels, out_channels, 3, 1, 1, device),
+            ConvV1(out_channels, out_channels, 3, 1, 1, device)
         )
 
     def forward(self, x):
@@ -67,8 +67,8 @@ class DecoderBlock(nn.Module):
         super(DecoderBlock, self).__init__()
         self.upsample = nn.ConvTranspose2d(in_channels, in_channels // 2, 2, 2)
         self.block = nn.Sequential(
-            Conv(in_channels, out_channels, 3, 1, 1, device),
-            Conv(out_channels, out_channels, 3, 1, 1, device)
+            ConvV1(in_channels, out_channels, 3, 1, 1, device),
+            ConvV1(out_channels, out_channels, 3, 1, 1, device)
         )
 
     def forward(self, x, feature):
@@ -76,29 +76,6 @@ class DecoderBlock(nn.Module):
         x = torch.cat([x, feature], dim=1)
         x = self.block(x)
         return x
-
-
-class InReshapeBlock(nn.Module):
-    def __init__(self, size):
-        super(InReshapeBlock, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(size)
-    
-    def forward(self, x):
-        feature = [self.avg_pool(t) for t in x]
-        feature = torch.stack(feature, 1)
-        return feature
-    
-    
-class OutReshapeBlock(nn.Module):
-    def __init__(self):
-        super(OutReshapeBlock, self).__init__()
-
-    def forward(self, x, trg):
-        features = []
-        for i in range(x.size(1)):
-            features += [F.adaptive_avg_pool2d(x[:, i], trg[i].size(1))]
-
-        return features
 
 
 class Transform(nn.Module):
@@ -109,8 +86,8 @@ class Transform(nn.Module):
         self.out_reshape = OutReshapeBlock()
 
         self.adj = nn.Sequential(
-            Conv(in_channels, 64, 3, 1, 1, device),
-            Conv(64, 64, 3, 1, 1, device),
+            ConvV1(in_channels, 64, 3, 1, 1, device),
+            ConvV1(64, 64, 3, 1, 1, device),
         )
 
         self.encoder1 = EncoderBlock(64, 128, device)
