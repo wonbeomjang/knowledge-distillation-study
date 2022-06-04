@@ -186,7 +186,7 @@ if __name__ == "__main__":
         run = wandb.init(id=save_info["run_id"], project='knowledge_distillation', resume="allow", dir=run_dir,
                          config=vars(config))
 
-    train_loader, test_loader = get_loader(wandb.config)
+    train_loader, test_loader = get_loader(config)
 
     print("Start test teacher")
     result = test(teacher, teacher, loss.CrossEntropyLoss().to(wandb.config.device), test_loader)

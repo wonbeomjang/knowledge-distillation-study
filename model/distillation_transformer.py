@@ -1,6 +1,11 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.model_zoo import load_url
+
+ckpt_url = "https://github.com/wonbeomjang/parameters/releases/download/parameter/transfrom.pth"
 
 
 class Conv(nn.Module):
@@ -97,7 +102,7 @@ class OutReshapeBlock(nn.Module):
 
 
 class Transform(nn.Module):
-    def __init__(self, in_channels, out_channels, size=56, device=torch.device("cpu")):
+    def __init__(self, in_channels, out_channels, size=56, device=torch.device("cpu"), pretrained=False):
         super(Transform, self).__init__()
 
         self.in_reshape = InReshapeBlock(size)
@@ -118,6 +123,9 @@ class Transform(nn.Module):
 
         self.out = nn.Conv2d(64, out_channels, 1)
 
+        if pretrained:
+            self.load_state_dict(load_url(ckpt_url))
+
     def forward(self, src, trg):
         x = self.in_reshape(src)
 
@@ -132,3 +140,13 @@ class Transform(nn.Module):
 
         x = self.out_reshape(x, trg)
         return x
+
+
+if __name__ == "__main__":
+    device = torch.device("cpu")
+    model = Transform(4, 4, device=device)
+    print(os.listdir("./"))
+    model.load_state_dict(torch.load("../transform.pth")["state_dict"])
+
+    torch.save(model.state_dict(), "transfrom.pth")
+

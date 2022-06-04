@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def loss_at(student, teacher):
+def  loss_at(student, teacher):
     s_attention = F.normalize(student.pow(2).mean(1).view(student.size(0), -1))
 
     with torch.no_grad():

@@ -18,24 +18,3 @@ class TMSE(nn.Module):
 
         return loss
 
-
-if __name__ == "__main__":
-    from model.distillation_transformer import DistillationTransformer
-
-    batch_size = 8
-    image_size = 224
-    embedding_size = 56 * 56
-
-    attention_1 = torch.rand((batch_size, 2 ** 6, image_size // (2 ** 2), image_size // (2 ** 2)))
-    attention_2 = torch.rand((batch_size, 2 ** 7, image_size // (2 ** 3), image_size // (2 ** 3)))
-    attention_3 = torch.rand((batch_size, 2 ** 8, image_size // (2 ** 4), image_size // (2 ** 4)))
-    attention_4 = torch.rand((batch_size, 2 ** 9, image_size // (2 ** 5), image_size // (2 ** 5)))
-
-    src = [attention_1, attention_2, attention_3, attention_4]
-    trg = [attention_1, attention_2, attention_3, attention_4]
-
-    transformer = DistillationTransformer(embedding_size, device=torch.device("cpu"))
-    tmse = TMSE(embedding_size, trg, torch.device("cpu"))
-
-    preds = transformer(src, trg)
-    loss = tmse(preds, trg)
