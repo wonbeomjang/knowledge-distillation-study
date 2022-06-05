@@ -16,6 +16,19 @@ import model
 from utils import *
 from data import get_loader
 
+
+import numpy as np
+from torch.backends import cudnn
+import random
+
+torch.manual_seed(0)
+torch.cuda.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+np.random.seed(0)
+cudnn.benchmark = False
+cudnn.deterministic = True
+random.seed(0)
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--backbone",
