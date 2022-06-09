@@ -59,7 +59,7 @@ parser.add_argument("--dataset",
                     action=LookupChoices)
 
 parser.add_argument("--image_size", type=int, default=224, help="size of train image")
-parser.add_argument("--batch_size", type=int, default=128, help="batch size")
+parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--start_epoch", type=int, default=0)
 parser.add_argument("--epoch", type=int, default=200, help="the number of epochs")
 parser.add_argument('--lr_decay_epochs', type=int, default=[100, 120, 160], nargs='+', help="decay epoch")
