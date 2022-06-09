@@ -45,41 +45,6 @@ class ConvV2(nn.Module):
         return x * y.expand_as(x)
 
 
-class EncoderV2(nn.Module):
-    def __init__(self, channels, device):
-        super(EncoderV2, self).__init__()
-        self.layer1 = ConvV2(channels, channels, 3, 1, 1, device)
-        self.layer2 = ConvV2(channels, channels, 3, 1, 1, device)
-        self.layer3 = ConvV2(channels, channels, 3, 1, 1, device)
-        self.layer4 = ConvV2(channels, channels, 3, 1, 1, device)
-
-    def forward(self, x):
-        x = self.layer1(x, x, x)
-        x = self.layer2(x, x, x)
-        x = self.layer3(x, x, x)
-        x = self.layer4(x, x, x)
-        return x
-
-
-class DecoderV2(nn.Module):
-    def __init__(self, channels, device):
-        super(DecoderV2, self).__init__()
-        self.layer1 = ConvV2(channels, channels, 3, 1, 1, device)
-        self.layer2 = ConvV2(channels, channels, 3, 1, 1, device)
-        self.layer3 = ConvV2(channels, channels, 3, 1, 1, device)
-        self.layer4 = ConvV2(channels, channels, 3, 1, 1, device)
-
-        self.adj = nn.Conv2d(channels, channels, 3, 1, 1)
-
-    def forward(self, y, x):
-        y = self.layer1(y, x, x)
-        y = self.layer2(y, x, x)
-        y = self.layer3(y, x, x)
-        y = self.layer4(y, x, x)
-        y = self.adj(y)
-        return y
-
-
 class TransformV2(nn.Module):
     def __init__(self, in_channels, out_channels, size=56, device=torch.device("cpu"), pretrained=False):
         super(TransformV2, self).__init__()
@@ -88,15 +53,14 @@ class TransformV2(nn.Module):
         self.in_reshape = InReshapeBlock(size)
         self.out_reshape = OutReshapeBlock()
 
-        self.encoder = EncoderV2(in_channels, device)
-        self.decoder = DecoderV2(in_channels, device)
+        self.layer1 = ConvV2(in_channels, out_channels, 3, 1, 1, device)
+        self.adj = nn.Conv2d(out_channels, out_channels, 3, 1, 1)
 
     def forward(self, src, trg):
-        x = self.in_reshape(src)
-        y = self.in_reshape(trg)
+        src = self.in_reshape(src)
 
-        x = self.encoder(x)
-        x = self.decoder(y, x)
+        src = self.layer1(src)
+        src = self.adj(src)
 
-        x = self.out_reshape(x, trg)
-        return x
+        src = self.out_reshape(src, trg)
+        return src

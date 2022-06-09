@@ -6,6 +6,8 @@ import torchvision
 import torch.nn.functional as F
 from torch.utils.model_zoo import load_url
 
+from .distillation_transformer import TransformV2
+
 model_urls = dict(
     vgg11="https://github.com/wonbeomjang/parameters/releases/download/parameter/vgg11_cifar100_teacher.pth",
     resnet18="https://github.com/wonbeomjang/parameters/releases/download/parameter/resnet18_cifar100_teacher.pth",
@@ -16,10 +18,11 @@ model_urls = dict(
 class VGG11(nn.Module):
     output_size = 512 * 7 * 7
 
-    def __init__(self, pretrained=True, num_classes=100, normalize=True, teacher=False):
+    def __init__(self, pretrained=True, num_classes=100, normalize=True, teacher=False, distill=False):
         super(VGG11, self).__init__()
         backbone = torchvision.models.vgg11(pretrained=pretrained)
         self.normalize = normalize
+        self.distill = distill
 
         self.layer1 = backbone.features[:6]
         self.layer2 = backbone.features[6:11]
@@ -27,12 +30,15 @@ class VGG11(nn.Module):
         self.layer4 = backbone.features[16:]
         self.avgpool = backbone.avgpool
 
+        if distill:
+            self.adj = TransformV2(4, 4)
+
         self.linear = nn.Linear(self.output_size, num_classes)
 
         if pretrained and teacher:
             self.load_state_dict(load_url(model_urls["vgg11"]))
 
-    def forward(self, x: torch.Tensor, get_ha=False):
+    def forward(self, x: torch.Tensor, get_ha=False, teacher=None):
         b1 = self.layer1(x)
         b2 = self.layer2(b1)
         b3 = self.layer3(b2)
