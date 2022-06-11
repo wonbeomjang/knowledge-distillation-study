@@ -46,9 +46,9 @@ parser.add_argument("--image_size", type=int, default=224, help="size of train i
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--start_epoch", type=int, default=0)
 parser.add_argument("--epoch", type=int, default=200, help="the number of epochs")
-parser.add_argument('--lr_decay_epochs', type=int, default=[100, 120, 160], nargs='+', help="decay epoch")
-parser.add_argument('--lr_decay_gamma', default=0.2, type=float, help="decay ratio")
-parser.add_argument("--learning_rate", type=float, default=1e-1, help="learning rate")
+parser.add_argument('--lr_decay_epochs', type=int, default=[60, 120, 170], nargs='+', help="decay epoch")
+parser.add_argument('--lr_decay_gamma', default=0.5, type=float, help="decay ratio")
+parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning rate")
 parser.add_argument("--checkpoint_dir", default="checkpoint", help="check point directory")
 parser.add_argument("--num_classes", type=int, default=100, help="the number of classes")
 parser.add_argument("--resume", nargs='?', const=True, default=False, help="resume most recent training")
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     attempt_make_dir(run_dir)
 
     net = config.backbone(pretrained=True, num_classes=config.num_classes,).to(config.device)
-    optimizer = optim.SGD(net.parameters(), lr=config.learning_rate, weight_decay=5e-4, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=config.learning_rate, weight_decay=5e-4)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=config.lr_decay_epochs,
                                                   gamma=config.lr_decay_gamma)
 
